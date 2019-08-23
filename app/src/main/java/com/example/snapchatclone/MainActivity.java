@@ -7,6 +7,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v4.view.ViewPager;
 import android.util.Log;
+import android.view.View;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -27,6 +28,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        View decorView = getWindow().getDecorView();
+        decorView.setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|
+                View.SYSTEM_UI_FLAG_LOW_PROFILE
+        );
+    }
+
+    @Override
     protected void onPause() {
         super.onPause();
         Log.i(TAG,"onPause!");
@@ -41,8 +52,10 @@ public class MainActivity extends AppCompatActivity {
         public Fragment getItem(int i) {
             switch(i) {
                 case 0:
+                    Log.i(TAG,"getCameraFragment!");
                     return new CameraFragment();
                 case 1:
+                    Log.i(TAG,"getFollowerFragment!");
                     return new FollowerFragment();
             }
             return null;
