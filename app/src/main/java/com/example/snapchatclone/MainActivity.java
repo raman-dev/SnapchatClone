@@ -32,8 +32,7 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         View decorView = getWindow().getDecorView();
         decorView.setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|
-                View.SYSTEM_UI_FLAG_LOW_PROFILE
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
         );
     }
 
@@ -44,7 +43,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private class MyPagerAdapter extends FragmentStatePagerAdapter {
-        public MyPagerAdapter(FragmentManager fm) {
+        MyPagerAdapter(FragmentManager fm) {
             super(fm);
         }
 

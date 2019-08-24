@@ -9,6 +9,7 @@ import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
@@ -43,7 +44,7 @@ public class CameraFragment extends Fragment implements TextureView.SurfaceTextu
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        if(requestCode == CameraOperationManager.CAMERA_CODE && permissions[0] == Manifest.permission.CAMERA){
+        if(requestCode == CameraOperationManager.CAMERA_CODE && permissions[0].equals(Manifest.permission.CAMERA)){
             if(grantResults[0] == PackageManager.PERMISSION_GRANTED){
                 mCameraOperationManager.openCamera(getActivity());
             }
@@ -73,18 +74,20 @@ public class CameraFragment extends Fragment implements TextureView.SurfaceTextu
     }
 
     @Override
-    public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
-
+    public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int width, int height) {
+        Log.i(TAG,"onSurfaceTextureAvailable!\n"+"{width, height} = "+"{"+width+","+height+"}");
+        mCameraOperationManager.addSurface(new Surface(surfaceTexture));
     }
 
     @Override
     public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
-
+        Log.i(TAG,"onSurfaceTextureSizeChanged!\n"+"{width, height} = "+"{"+width+","+height+"}");
     }
 
     @Override
     public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-        return false;
+        Log.i(TAG,"onSurfaceTextureDestroyed!");
+        return true;
     }
 
     @Override
