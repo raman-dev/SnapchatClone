@@ -2,6 +2,7 @@ package com.example.snapchatclone;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.graphics.Matrix;
 import android.graphics.SurfaceTexture;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -18,6 +19,7 @@ public class CameraFragment extends Fragment implements TextureView.SurfaceTextu
 
     private static final String TAG="CameraFragment";
     private CameraOperationManager mCameraOperationManager;
+    private TextureView mTextureView;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -30,11 +32,16 @@ public class CameraFragment extends Fragment implements TextureView.SurfaceTextu
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         Log.i(TAG,"onCreateView");
-        View view = inflater.inflate(R.layout.camera_frag_layout,container,false);
-        TextureView textureView = view.findViewById(R.id.textureView);
-        textureView.setSurfaceTextureListener(this);
-        return view;
+        return inflater.inflate(R.layout.camera_frag_layout,container,false);
     }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        mTextureView = view.findViewById(R.id.textureView);
+        mTextureView.setSurfaceTextureListener(this);
+    }
+
 
     @Override
     public void onStart() {
@@ -71,6 +78,18 @@ public class CameraFragment extends Fragment implements TextureView.SurfaceTextu
     public void onStop() {
         super.onStop();
         mCameraOperationManager.stopCameraThread();
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        Log.i(TAG,"onDestroyView!");
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        Log.i(TAG,"onDestroy!");
     }
 
     @Override

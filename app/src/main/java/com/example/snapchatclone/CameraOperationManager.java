@@ -21,6 +21,7 @@ import android.view.Surface;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Semaphore;
 
 class CameraOperationManager {
@@ -44,13 +45,19 @@ class CameraOperationManager {
         public void onOpened(@NonNull CameraDevice camera) {
             Log.i(TAG, "Camera Opened!");
             mCameraDevice = camera;
-
             //need to wait until at least one output surface is available
-            try {
-                DisplayWaitLock.acquire();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+            if(mCameraOutputSurfaceList.isEmpty()){
+                try {
+                    Log.i(TAG,"Waiting for surface...");
+                    mCameraOutputSurfaceList.add(blockingQ.take());
+                    if(blockingQ.size() > 0){
+                        blockingQ.drainTo(mCameraOutputSurfaceList);
+                    }
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
             }
+
             try {
                 mCameraDevice.createCaptureSession(mCameraOutputSurfaceList, mCaptureSessionStateCallback, mHandler);
             } catch (CameraAccessException e) {
@@ -92,6 +99,7 @@ class CameraOperationManager {
     private Handler mHandler;
     private HandlerThread mHandlerThread;
     private Semaphore DisplayWaitLock;
+    private ArrayBlockingQueue<Surface> blockingQ;
 
     private HashMap<CAMERA_NAME, String> mCameraIdNameMap;
     private String mCurrentCameraID;
@@ -101,6 +109,7 @@ class CameraOperationManager {
         mCameraIdNameMap = new HashMap<>();
         mCameraOutputSurfaceList = new ArrayList<>();
         DisplayWaitLock = new Semaphore(1);
+        blockingQ = new ArrayBlockingQueue<>(1);
         getCameraId();
     }
 
@@ -149,11 +158,6 @@ class CameraOperationManager {
      * Open camera that was set in setCamera(camName) call
      */
     void openCamera(Activity activity) {
-        try {
-            DisplayWaitLock.acquire();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
         if (ActivityCompat.checkSelfPermission(activity, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             // if permission does not exist request the permission
             activity.requestPermissions(new String[]{Manifest.permission.CAMERA}, CAMERA_CODE);
@@ -172,8 +176,11 @@ class CameraOperationManager {
      * @param surface A surface the camera can use as an output
      */
     void addSurface(Surface surface) {
-        DisplayWaitLock.release();
-        mCameraOutputSurfaceList.add(surface);
+        Log.i(TAG,"Trying to add surface...");
+        if(!blockingQ.contains(surface)) {
+            Log.i(TAG,"Adding surface...");
+            blockingQ.offer(surface);
+        }
     }
 
     /**
@@ -199,6 +206,7 @@ class CameraOperationManager {
      * Close currently open camera
      */
     void closeCamera() {
+        DisplayWaitLock.release();
         //close the open camera
         if (mCameraDevice != null) {
             mCameraDevice.close();
