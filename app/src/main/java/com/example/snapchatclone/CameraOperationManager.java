@@ -32,6 +32,11 @@ class CameraOperationManager {
     static final String BACK_CAMERA = "BACK_CAMERA";
     static final String FRONT_CAMERA = "FRONT_CAMERA";
     private ArrayList<Surface> mCameraOutputSurfaceList;
+    private CameraCharacteristics mCameraCharacteristics;
+
+    public int getCameraOrientation() {
+        return mCameraCharacteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
+    }
 
     enum CAMERA_NAME {
         BACK_CAMERA, FRONT_CAMERA
@@ -98,7 +103,6 @@ class CameraOperationManager {
 
     private Handler mHandler;
     private HandlerThread mHandlerThread;
-    private Semaphore DisplayWaitLock;
     private ArrayBlockingQueue<Surface> blockingQ;
 
     private HashMap<CAMERA_NAME, String> mCameraIdNameMap;
@@ -108,7 +112,6 @@ class CameraOperationManager {
         mCameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
         mCameraIdNameMap = new HashMap<>();
         mCameraOutputSurfaceList = new ArrayList<>();
-        DisplayWaitLock = new Semaphore(1);
         blockingQ = new ArrayBlockingQueue<>(1);
         getCameraId();
     }
@@ -141,6 +144,11 @@ class CameraOperationManager {
             mCurrentCameraID = mCameraIdNameMap.get(CAMERA_NAME.BACK_CAMERA);
         } else if (cameraName.equals(FRONT_CAMERA)) {
             mCurrentCameraID = mCameraIdNameMap.get(CAMERA_NAME.FRONT_CAMERA);
+        }
+        try {
+            mCameraCharacteristics = mCameraManager.getCameraCharacteristics(mCurrentCameraID);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
         }
     }
 
@@ -206,7 +214,6 @@ class CameraOperationManager {
      * Close currently open camera
      */
     void closeCamera() {
-        DisplayWaitLock.release();
         //close the open camera
         if (mCameraDevice != null) {
             mCameraDevice.close();

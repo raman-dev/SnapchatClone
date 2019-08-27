@@ -3,6 +3,7 @@ package com.example.snapchatclone;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.graphics.Matrix;
+import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -95,6 +96,29 @@ public class CameraFragment extends Fragment implements TextureView.SurfaceTextu
     @Override
     public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int width, int height) {
         Log.i(TAG,"onSurfaceTextureAvailable!\n"+"{width, height} = "+"{"+width+","+height+"}");
+        //set transform here
+        //before texture is available
+        //but after view is created
+        int mDisplayOrientation = getActivity().getWindowManager().getDefaultDisplay().getRotation();
+        int mCameraOrientation = mCameraOperationManager.getCameraOrientation();
+        Matrix matrix = new Matrix();
+        mTextureView.getTransform(matrix);
+        //adjust the matrix to correct for orientation
+        //to rotate the output translate the center of the texture to the center
+        //rotate to display orientation and then translate to new center after rotation
+        Log.i(TAG,"Camera and Display have different orientations");
+        float viewCenterX = width/2f;
+        float viewCenterY = height/2f;
+        //matrix.postTranslate(-viewCenterY,-viewCenterX);
+        //matrix.postRotate(90f,0f,0f);
+        //matrix.postTranslate(viewCenterX,viewCenterY);
+
+        //depending on the difference the camera output needs to be rotated so
+        //the camera output is sent to the SurfaceTexture but we need to rotate the data
+        //so it can map onto the display
+
+        mTextureView.setTransform(matrix);
+        surfaceTexture.setDefaultBufferSize(2560,1440);
         mCameraOperationManager.addSurface(new Surface(surfaceTexture));
     }
 
