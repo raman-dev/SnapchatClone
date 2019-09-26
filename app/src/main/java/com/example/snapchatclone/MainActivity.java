@@ -11,7 +11,6 @@ import android.view.View;
 
 public class MainActivity extends AppCompatActivity {
 
-
     private static final String TAG = "MainActivity";
     private static final int NUM_PAGES = 2;
 
@@ -32,7 +31,8 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         View decorView = getWindow().getDecorView();
         decorView.setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         );
     }
 
