@@ -7,7 +7,6 @@ import android.util.AttributeSet;
 public class CameraGLSurfaceView extends GLSurfaceView {
 
     private CameraRenderer mCameraRenderer;
-    private CameraOperationManager mCameraOperationManager;
 
     public CameraGLSurfaceView(Context context) {
         super(context);
@@ -21,31 +20,27 @@ public class CameraGLSurfaceView extends GLSurfaceView {
 
     private void init(Context context) {
         setEGLContextClientVersion(2);
-        mCameraOperationManager = new CameraOperationManager(context);
-        mCameraOperationManager.setCamera(CameraOperationManager.BACK_CAMERA);
-        mCameraRenderer = new CameraRenderer(context,mCameraOperationManager,this);
+        mCameraRenderer = new CameraRenderer(context,this);
+
         setRenderer(mCameraRenderer);
         setRenderMode(RENDERMODE_WHEN_DIRTY);
     }
 
-    public void onStart(){
-        mCameraOperationManager.startCameraThread();
+    public void setSensorRotation(int rotation){
+        mCameraRenderer.setSensorRotation(rotation);
     }
 
-    public void OpenCamera(MainActivity activity,int rotation){
-        mCameraOperationManager.openCamera(activity);
-        mCameraRenderer.setSensorRotation(mCameraOperationManager.getCameraOrientation());
+    public void setDisplayRotation(int rotation){
         mCameraRenderer.setDisplayRotation(rotation);
     }
 
     @Override
     public void onPause(){
         super.onPause();
-        mCameraOperationManager.closeCamera();
         mCameraRenderer.onPause();
     }
 
-    public void onStop(){
-        mCameraOperationManager.stopCameraThread();
+    public void setCameraOperationManager(CameraOperationManager cameraOperationManager) {
+        mCameraRenderer.setCameraOperationManager(cameraOperationManager);
     }
 }

@@ -8,13 +8,15 @@ import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.ViewGroup;
 
-public class CameraFragment extends Fragment{
+public class CameraFragment extends Fragment implements SurfaceHolder.Callback {
 
     private static final String TAG = "CameraFragment";
-    private CameraGLSurfaceView cameraGLSurfaceView;
+    private CameraGLSurfaceView mCameraGLSurfaceView;
+    private CameraOperationManager mCameraOperationManager;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -25,19 +27,24 @@ public class CameraFragment extends Fragment{
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         Log.i(TAG, "onCreateView");
+
+
+        mCameraOperationManager = new CameraOperationManager(getActivity());
+        mCameraOperationManager.setCamera(CameraOperationManager.BACK_CAMERA);
+
         View view = inflater.inflate(R.layout.camera_frag_layout, container, false);
-        cameraGLSurfaceView = view.findViewById(R.id.cameraGLSurfaceView);
-        cameraGLSurfaceView.setZOrderOnTop(true);
+        mCameraGLSurfaceView = view.findViewById(R.id.surfaceView);
+        mCameraGLSurfaceView.setZOrderOnTop(true);
+        mCameraGLSurfaceView.setCameraOperationManager(mCameraOperationManager);
+        //mCameraGLSurfaceView.getHolder().addCallback(this);
         return view;
     }
-
-
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         if (requestCode == CameraOperationManager.CAMERA_CODE && permissions[0].equals(Manifest.permission.CAMERA)) {
             if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-
+                Log.i(TAG,"CAMERA_PERMISSION GRANTED!");
             }
         } else {
             getActivity().finish();
@@ -47,26 +54,45 @@ public class CameraFragment extends Fragment{
     @Override
     public void onStart() {
         super.onStart();
-        cameraGLSurfaceView.onStart();
+        mCameraOperationManager.startCameraThread();
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        cameraGLSurfaceView.OpenCamera((MainActivity) getActivity(),getActivity().getWindowManager().getDefaultDisplay().getRotation());
-        cameraGLSurfaceView.onResume();
+        mCameraOperationManager.openCamera(getActivity());
+
+        mCameraGLSurfaceView.setSensorRotation(mCameraOperationManager.getCameraOrientation());
+        mCameraGLSurfaceView.setDisplayRotation(getActivity().getWindowManager().getDefaultDisplay().getRotation());
+
+        mCameraGLSurfaceView.onResume();
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        cameraGLSurfaceView.onPause();
+        mCameraOperationManager.closeCamera();
+        mCameraGLSurfaceView.onPause();
     }
 
     @Override
     public void onStop() {
         super.onStop();
-        cameraGLSurfaceView.onStop();
+        mCameraOperationManager.stopCameraThread();
+    }
+
+    @Override
+    public void surfaceCreated(SurfaceHolder holder) {
+    }
+
+    @Override
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+        mCameraOperationManager.addSurface(holder.getSurface());
+    }
+
+    @Override
+    public void surfaceDestroyed(SurfaceHolder holder) {
+
     }
 }
 

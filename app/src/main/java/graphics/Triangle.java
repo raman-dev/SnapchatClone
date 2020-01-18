@@ -1,5 +1,7 @@
 package graphics;
 
+import android.graphics.RectF;
+
 import static android.opengl.GLES20.GL_ARRAY_BUFFER;
 import static android.opengl.GLES20.GL_ELEMENT_ARRAY_BUFFER;
 import static android.opengl.GLES20.GL_FLOAT;
@@ -33,7 +35,7 @@ public class Triangle extends RenderObject {
 
     //pass vertices through to gl_position
     public String vertexShaderSource =
-            "attribute vec4 a_Position;" +
+                            "attribute vec4 a_Position;" +
                     "attribute vec2 a_TextureCoordinates;" +
                     "varying vec2 v_TextureCoordinates;" +
                     "uniform mat4 mvpMatrix;"+
@@ -43,7 +45,7 @@ public class Triangle extends RenderObject {
                     "}";
     //pass a single uniform color to the fragment shader
     public String fragmentShaderSource =
-            "precision mediump float;" +
+                    "precision mediump float;" +
                     "uniform vec4 u_FragColor;" +
                     "uniform sampler2D u_Texture;" +
                     "varying vec2 v_TextureCoordinates;" +
@@ -82,9 +84,26 @@ public class Triangle extends RenderObject {
         initTextureBuffer(textureCoordinates);
     }
 
+    public Triangle(RectF boundingBox) {
+        //center the triangle in the bounding box
+        float[] vertices = new float[]{
+                //x,y,z,1
+                //top-left
+                boundingBox.left,boundingBox.top,0f,1f,
+                //bottom-left
+                boundingBox.left,boundingBox.bottom,0f,1f,
+                //bottom-right
+                boundingBox.right,boundingBox.bottom,0f,1f
+        };
+        initVertexBuffer(vertices);
+        initColorBuffer(color);
+        initIndexBuffer(indices);
+    }
+
     @Override
     public void setAttributeAndVBO() {
-        buffers = new int[3];//one index buffer and one vertex buffer
+        buffers = new int[2];
+        // buffers = new int[3];//one index buffer and one vertex buffer
         //create memory on the gpu to store vertices
         //colors as uniform's must be passed from cpu to gpu on every drawcall
         glGenBuffers(buffers.length,buffers,0);//num buffers,array for resulting bufferids, offset into array to place ids
@@ -96,12 +115,12 @@ public class Triangle extends RenderObject {
         glBindBuffer(GL_ARRAY_BUFFER,buffers[1]);
         glBufferData(GL_ARRAY_BUFFER,vertexBuffer.capacity()*BYTES_PER_FLOAT,vertexBuffer,GL_STATIC_DRAW);//
         //vbo for texture coordinates
-        glBindBuffer(GL_ARRAY_BUFFER,buffers[2]);
-        glBufferData(GL_ARRAY_BUFFER,textureBuffer.capacity()*BYTES_PER_FLOAT,textureBuffer,GL_STATIC_DRAW);//
+        //glBindBuffer(GL_ARRAY_BUFFER,buffers[2]);
+        //glBufferData(GL_ARRAY_BUFFER,textureBuffer.capacity()*BYTES_PER_FLOAT,textureBuffer,GL_STATIC_DRAW);//
 
         positionReference = glGetAttribLocation(program,"a_Position");
-        texCoordinateReference = glGetAttribLocation(program,"a_TextureCoordinates");//coordinates that will be sent as varying to fragment shader
-        texDataReference = glGetUniformLocation(program,"u_Texture");//the texture data in the gpu
+        //texCoordinateReference = glGetAttribLocation(program,"a_TextureCoordinates");//coordinates that will be sent as varying to fragment shader
+        //texDataReference = glGetUniformLocation(program,"u_Texture");//the texture data in the gpu
         colorReference = glGetUniformLocation(program,"u_FragColor");
         mvpMatrixReference = glGetUniformLocation(program,"mvpMatrix");
     }
@@ -117,21 +136,21 @@ public class Triangle extends RenderObject {
         glVertexAttribPointer(positionReference,POSITION_COMPONENT_COUNT,GL_FLOAT,false,POSITION_COMPONENT_COUNT*BYTES_PER_FLOAT,0);
         glEnableVertexAttribArray(positionReference);//enable the per vertex attribute
 
-        glActiveTexture(GL_TEXTURE0);///activate this texture at position 0
-        glBindTexture(GL_TEXTURE_2D, texDataReference);//the texture data is of type gl_texture2d
-        glBindBuffer(GL_ARRAY_BUFFER,buffers[2]);//vertices
-        glVertexAttribPointer(texCoordinateReference,TEXCOORD_COMPONENT_COUNT,GL_FLOAT,false, TEXCOORD_COMPONENT_COUNT*BYTES_PER_FLOAT,0);
-        glEnableVertexAttribArray(texCoordinateReference);//enable per vertex texture coordinates
+        //glActiveTexture(GL_TEXTURE0);///activate this texture at position 0
+        //glBindTexture(GL_TEXTURE_2D, texDataReference);//the texture data is of type gl_texture2d
+        //glBindBuffer(GL_ARRAY_BUFFER,buffers[2]);//vertices
+        //glVertexAttribPointer(texCoordinateReference,TEXCOORD_COMPONENT_COUNT,GL_FLOAT,false, TEXCOORD_COMPONENT_COUNT*BYTES_PER_FLOAT,0);
+        //glEnableVertexAttribArray(texCoordinateReference);//enable per vertex texture coordinates
 
         //draw triangles,number of indices to draw,type of index,offset into index buffer
         glUniform4fv(colorReference,1,colorBuffer);
         glUniformMatrix4fv(mvpMatrixReference,1,false,mvpMatrixBuffer);
-        glUniform1i(texDataReference,0);//tell the gpu to use this texture
+        //glUniform1i(texDataReference,0);//tell the gpu to use this texture
 
         glDrawElements(GL_TRIANGLES,3,GL_UNSIGNED_INT,0);//wanna use elements
 
         glDisableVertexAttribArray(positionReference);
-        glDisableVertexAttribArray(texCoordinateReference);
+        //glDisableVertexAttribArray(texCoordinateReference);
     }
 
 

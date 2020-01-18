@@ -14,6 +14,7 @@ import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.os.Handler;
@@ -200,8 +201,11 @@ class CameraOperationManager {
             }
             exposureTimeRanges = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
             sensorSensitivityRanges = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
-            Log.i(TAG,"ExposureTimeRanges in ns => "+exposureTimeRanges.toString());
-            Log.i(TAG,"SensorSensitivityRanges => "+sensorSensitivityRanges.toString());
+            if(exposureTimeRanges != null) {
+                Log.i(TAG, "ExposureTimeRanges in ns => " + exposureTimeRanges.toString());
+            }if(sensorSensitivityRanges != null) {
+                Log.i(TAG, "SensorSensitivityRanges => " + sensorSensitivityRanges.toString());
+            }
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -337,39 +341,48 @@ class CameraOperationManager {
 
         StreamConfigurationMap scm = mCameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
         Size closestSize = null;
-        int[] formats = scm.getOutputFormats();
-        int difference_old = -1;
-        for (int i = 0; i < formats.length; i++) {
-            Size[] sizes = scm.getOutputSizes(formats[i]);
-            //do a binary search instead
-            //start from largest then go to half
-            for (int i1 = 0; i1 < sizes.length; i1++) {
-                Size s = sizes[i1];
-                int sWidth = s.getWidth();
-                if(sWidth/gcd == aspect_w && s.getHeight()/gcd == aspect_h){
-                    //same aspect ratio
-                    //if it has the same width or height then return this size;
-                    if(sWidth == width){
-                        return s;
-                    }else{
-                        //its a potentialSize
-                        if(closestSize != null){
-                            //s has the same aspect ratio
-                            //s needs to be as close to width and height as possible
-                            //calculate distance
-                            int difference_new = Math.abs(sWidth-width);
-                            if(difference_new < difference_old){
-                                closestSize = s;
-                                difference_old = Math.abs(closestSize.getWidth() - width);
-                            }
-                        }else{
-                            closestSize = s;
-                            difference_old = Math.abs(closestSize.getWidth() - width);
-                        }
+        //int[] formats = scm.getOutputFormats();
+        //stick to yuv 420 888
+        Size[] sizes = scm.getOutputSizes(ImageFormat.YUV_420_888);
+        for (int i = 0; i < sizes.length; i++) {
+            //find one that has the same aspect or the closest in size that is smaller than the screen
+            Size test = sizes[i];
+            int testWidth = test.getWidth();
+            int testHeight = test.getHeight();
+            if(testWidth % aspect_w == 0 && testHeight % aspect_h == 0){
+                //if same aspect then width mod aspect == 0 and height mod aspect == 0
+                //example 1920 x 1080 and 2560 x 1440 are both 16:9
+                //so 1920 mod 16 == 0 and so does 2560 mod 16
+                //and 1080 mod 9 == 0 and 1440 mod 9 == 0
+                if(closestSize == null){
+                    closestSize = test;
+                }else{
+                    //there was another size we picked with the same aspect
+                    //check if test is closer than the one we picked to actual size
+                    if(Math.abs(width - testWidth) < Math.abs(width - closestSize.getWidth())){
+                        closestSize = test;
                     }
+                    //otherwise the already chosen is closer
                 }
             }
         }
+        //now if none are chosen pick the one that is closes in distance
+        double distance = -1f;
+        if(closestSize == null){
+            for (int i = 0; i < sizes.length; i++) {
+                //calculate the distance formula for each
+                Size test = sizes[i];
+                double test_distance = Math.sqrt(Math.pow(test.getWidth() - width,2f) + Math.pow(test.getHeight() - height,2f));
+                if(distance == -1f){
+                    closestSize = test;
+                    distance = test_distance;
+                }else if(test_distance < distance){
+                        closestSize = test;
+                        distance = test_distance;
+                }
+            }
+        }
+
         return closestSize;
     }
 }

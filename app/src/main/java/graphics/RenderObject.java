@@ -66,6 +66,7 @@ public abstract class RenderObject {
     int positionReference = -1;
     int colorReference = -1;
     int texCoordinateReference = -1;
+    int textureTransformReference = -1;
     public int texDataReference = -1;
 
 

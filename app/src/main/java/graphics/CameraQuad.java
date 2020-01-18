@@ -1,5 +1,10 @@
 package graphics;
 
+import android.graphics.SurfaceTexture;
+import android.renderscript.Matrix4f;
+
+import java.util.Arrays;
+
 import static android.opengl.GLES11Ext.GL_TEXTURE_EXTERNAL_OES;
 import static android.opengl.GLES20.GL_ARRAY_BUFFER;
 import static android.opengl.GLES20.GL_DYNAMIC_DRAW;
@@ -33,10 +38,12 @@ public class CameraQuad extends RenderObject {
             0,1,2,
             2,3,0};
 
+    private Matrix4f textureTransform;
     //no color parameter
     public CameraQuad(float[] verticesAndTexture) {
         initIndexBuffer(indices);
         initVertexTextureBuffer(verticesAndTexture);
+        textureTransform = new Matrix4f();
     }
 
     @Override
@@ -56,6 +63,7 @@ public class CameraQuad extends RenderObject {
 
         texCoordinateReference = glGetAttribLocation(program,"aTexCoordinates");
         texDataReference = glGetUniformLocation(program,"uCameraTexture");
+        textureTransformReference = glGetUniformLocation(program,"uTextureTransform");
     }
 
 
@@ -76,6 +84,35 @@ public class CameraQuad extends RenderObject {
         glEnableVertexAttribArray(positionReference);
         glEnableVertexAttribArray(texCoordinateReference);
 
+        glUniformMatrix4fv(mvpMatrixReference,1,false,mvpMatrixBuffer);//uniform mvp matrix
+        glUniform1i(texDataReference,0);
+
+        glDrawElements(GL_TRIANGLES,indices.length,GL_UNSIGNED_INT,0);
+
+        glDisableVertexAttribArray(positionReference);
+        glDisableVertexAttribArray(texCoordinateReference);
+    }
+
+    public void drawCamera(SurfaceTexture mSurfaceTexture) {
+
+        //draw triangles,6 indices,type,offset
+        glUseProgram(program);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,buffers[0]);//bind my index buffer
+        glBindBuffer(GL_ARRAY_BUFFER,buffers[1]);//bind my vertex buffer
+
+        glActiveTexture(GL_TEXTURE0);
+        mSurfaceTexture.updateTexImage();
+        mSurfaceTexture.getTransformMatrix(textureTransform.getArray());
+        //glBindTexture(GL_TEXTURE_EXTERNAL_OES,texDataReference);
+
+        glVertexAttribPointer(positionReference,POSITION_COMPONENT_COUNT,GL_FLOAT,false,vertexStride,0);
+        glVertexAttribPointer(texCoordinateReference,TEXCOORD_COMPONENT_COUNT,GL_FLOAT,false,vertexStride,POSITION_COMPONENT_COUNT*BYTES_PER_FLOAT);
+
+        glEnableVertexAttribArray(positionReference);
+        glEnableVertexAttribArray(texCoordinateReference);
+
+        glUniformMatrix4fv(textureTransformReference,1,false,textureTransform.getArray(),0);
         glUniformMatrix4fv(mvpMatrixReference,1,false,mvpMatrixBuffer);//uniform mvp matrix
         glUniform1i(texDataReference,0);
 

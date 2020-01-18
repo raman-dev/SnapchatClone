@@ -1,19 +1,27 @@
 package com.example.snapchatclone;
 
 import android.content.Context;
+import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.opengl.GLSurfaceView;
+import android.renderscript.Matrix4f;
 import android.util.Size;
 import android.view.Surface;
+
+import java.util.Arrays;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 import graphics.CameraQuad;
 import graphics.RenderObject;
+import graphics.Triangle;
 
 import static android.opengl.GLES11Ext.GL_TEXTURE_EXTERNAL_OES;
 import static android.opengl.GLES20.GL_COLOR_BUFFER_BIT;
+import static android.opengl.GLES20.GL_TEXTURE0;
+import static android.opengl.GLES20.glActiveTexture;
 import static android.opengl.GLES20.glClear;
 import static android.opengl.GLES20.glClearColor;
 import static android.opengl.GLES20.glFlush;
@@ -34,15 +42,23 @@ class CameraRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFrameAv
     private Context context;
     private int displayRotation = -1;
     private int cameraOrientation = -1;
+    private Matrix4f textureTransformMatrix;
 
-    public CameraRenderer(Context context, CameraOperationManager mCameraOperationManager, CameraGLSurfaceView mCameraGLSurfaceView) {
+    private Triangle triangle;
+
+    public CameraRenderer(Context context, CameraGLSurfaceView mCameraGLSurfaceView) {
         this.mCameraGLSurfaceView = mCameraGLSurfaceView;
-        this.mCameraOperationManager = mCameraOperationManager;
         this.context = context;
 
         viewMatrix = new float[16];
         projectionMatrix = new float[16];
         mvpMatrix = new float[16];
+
+        textureTransformMatrix = new Matrix4f();
+    }
+
+    public void setCameraOperationManager(CameraOperationManager cameraOperationManager){
+        mCameraOperationManager = cameraOperationManager;
     }
 
     @Override
@@ -55,6 +71,7 @@ class CameraRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFrameAv
     public void onSurfaceChanged(GL10 gl, int width, int height) {
         //no need to recreate surface texture multiple times
         if(mSurfaceTexture == null) {
+            System.out.println("ViewWidth,ViewHeight => "+width+"," + height);
             float h = (float) height;
             float w = (float) width;
             //a quad requires 4 vertices in ccw winding order
@@ -80,47 +97,57 @@ class CameraRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFrameAv
                     break;
                 case Surface.ROTATION_90:
                 case Surface.ROTATION_270:
-                    System.out.println("Camera is 90|270 degrees from natural orientation");
+
                     //both have same orientation
                     if(displayRotation != Surface.ROTATION_90 && displayRotation != Surface.ROTATION_270){
+                        System.out.println("Camera is 90|270 degrees from natural orientation");
                         swapDimensions = true;
                     }
                     break;
             }
             if(swapDimensions){
-                verticesAndTexture = new float[]{
-                       -w/2, h/2,0f,1f, 0f, 1f, //top-left 01
-                       -w/2,-h/2,0f,1f, 1f, 1f, //bottom-left 11
-                        w/2,-h/2,0f,1f, 1f, 0f, //bottom-right 10
-                        w/2, h/2,0f,1f, 0f, 0f, //top-right 00
-                };
+                System.out.println("SWAP DIMENSIONS!!!");
+
                 outputSize = mCameraOperationManager.getApproximateSize(height,width);//swap since they are perpendicular
-            }else{
+
                 verticesAndTexture = new float[]{
-                        -w/2, h/2,0f,1f, 0f, 0f,
-                        -w/2,-h/2,0f,1f, 0f, 1f,
-                        w/2,-h/2,0f,1f, 1f, 1f,
-                        w/2, h/2,0f,1f, 1f, 0f,
+                        -outputSize.getHeight()/2, outputSize.getWidth()/2,0f,1f, 0f, 1f, //top-left 01
+                        -outputSize.getHeight()/2,-outputSize.getWidth()/2,0f,1f, 0f, 0f, //bottom-left 11
+                        outputSize.getHeight()/2,-outputSize.getWidth()/2,0f,1f, 1f, 0f, //bottom-right 10
+                        outputSize.getHeight()/2, outputSize.getWidth()/2,0f,1f, 1f, 1f, //top-right 00
                 };
+            }else{
                 outputSize = mCameraOperationManager.getApproximateSize(width,height);//swap since they are perpendicular
+                System.out.println("DO NOT SWAP DIMENSIONS!!!");
+                verticesAndTexture = new float[]{
+                        -outputSize.getWidth()/2, outputSize.getHeight()/2,0f,1f, 1f, 1f,//top-left
+                        -outputSize.getWidth()/2,-outputSize.getHeight()/2,0f,1f, 0f, 1f,//bottom-left
+                        outputSize.getWidth()/2,-outputSize.getHeight()/2,0f,1f,  0f, 0f,//bottom-right
+                        outputSize.getWidth()/2, outputSize.getHeight()/2,0f,1f,  1f, 0f,//top-right
+                };
             }
             //depending on the orientation of the display to the sensor
             //the texture coordinates need to change
             //if the sensor and display have the same orientation then
             //tex coordinates become 1 to 1 mappings
             //the indices would be 0,1,2,2,3,0
-             configureSurfaceAndCameraQuad(verticesAndTexture,outputSize.getWidth(),outputSize.getHeight());
+            System.out.println("Selected output_size =>"+outputSize.toString());
+            configureSurfaceAndCameraQuad(verticesAndTexture,outputSize.getWidth(),outputSize.getHeight());
             mCameraOperationManager.addSurface(new Surface(mSurfaceTexture));
             //set mvp matrix here
             //calculate an orthographic projection depending on viewport height and width
             //this is so triangles can be created in a space from -width/2 to +width/2 and -height/2 to + height/2
+            //triangle = new Triangle(new RectF(-w/2f,h/2f,w/2f,-h/2f));
+            //triangle.createProgram(context,R.raw.vertex_basic,R.raw.fragment_basic);
             RenderObject.computeOrthoMVP(width, height, -10f, 10f, viewMatrix, projectionMatrix, mvpMatrix);
             //set the mvpMatrix for the triangle
+            //triangle.setMvpMatrix(mvpMatrix);
+            //triangle.setAttributeAndVBO();
             cameraQuad.setMvpMatrix(mvpMatrix);
             //send vertex and index data to gpu and get uniform and attribute references
             cameraQuad.setAttributeAndVBO();
-            glViewport(0, 0, width, height);
         }
+        glViewport(0, 0, width, height);
     }
 
     private void configureSurfaceAndCameraQuad(float[] verticesAndTexture,int width, int height) {
@@ -136,8 +163,9 @@ class CameraRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFrameAv
     @Override
     public void onDrawFrame(GL10 gl) {
         glClear(GL_COLOR_BUFFER_BIT);
-        mSurfaceTexture.updateTexImage();//get the new frame from the camera
-        cameraQuad.draw();
+        cameraQuad.drawCamera(mSurfaceTexture);
+        //cameraQuad.draw();
+        //triangle.draw();
         glFlush();
     }
 
