@@ -34,7 +34,7 @@ public class CameraFragment extends Fragment implements SurfaceHolder.Callback {
 
         View view = inflater.inflate(R.layout.camera_frag_layout, container, false);
         mCameraGLSurfaceView = view.findViewById(R.id.surfaceView);
-        mCameraGLSurfaceView.setZOrderOnTop(true);
+        //mCameraGLSurfaceView.setZOrderOnTop(true);
         mCameraGLSurfaceView.setCameraOperationManager(mCameraOperationManager);
         //mCameraGLSurfaceView.getHolder().addCallback(this);
         return view;
@@ -71,6 +71,7 @@ public class CameraFragment extends Fragment implements SurfaceHolder.Callback {
     @Override
     public void onPause() {
         super.onPause();
+        Log.i("CameraFragment","onPause!");
         mCameraOperationManager.closeCamera();
         mCameraGLSurfaceView.onPause();
     }

@@ -4,6 +4,8 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentManager;
+import android.support.v4.app.FragmentTransaction;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -16,13 +18,26 @@ public class FollowerFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        Log.i(TAG,"onCreateView");
-        return inflater.inflate(R.layout.follower_frag_layout,container,false);
+        Log.i(TAG, "onCreateView");
+        return inflater.inflate(R.layout.follower_frag_layout, container, false);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        //prompt sign in always? or remember user?
+        //we want to remember user
+        //only show if user is not remembered or signed out
+        //if not signed in from last time then show signin layout as dialog
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        Log.i(TAG,"onPause");
+        Log.i(TAG, "onPause");
     }
+
+
+
+
 }
