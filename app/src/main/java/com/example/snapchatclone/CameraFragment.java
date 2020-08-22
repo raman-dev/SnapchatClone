@@ -3,14 +3,16 @@ package com.example.snapchatclone;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
+
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.ViewGroup;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
 
 public class CameraFragment extends Fragment implements SurfaceHolder.Callback {
 
@@ -32,7 +34,7 @@ public class CameraFragment extends Fragment implements SurfaceHolder.Callback {
         mCameraOperationManager = new CameraOperationManager(getActivity());
         mCameraOperationManager.setCamera(CameraOperationManager.BACK_CAMERA);
 
-        View view = inflater.inflate(R.layout.camera_frag_layout, container, false);
+        View view = inflater.inflate(R.layout.camera_layout, container, false);
         mCameraGLSurfaceView = view.findViewById(R.id.surfaceView);
         //mCameraGLSurfaceView.setZOrderOnTop(true);
         mCameraGLSurfaceView.setCameraOperationManager(mCameraOperationManager);
@@ -45,6 +47,7 @@ public class CameraFragment extends Fragment implements SurfaceHolder.Callback {
         if (requestCode == CameraOperationManager.CAMERA_CODE && permissions[0].equals(Manifest.permission.CAMERA)) {
             if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Log.i(TAG,"CAMERA_PERMISSION GRANTED!");
+                mCameraOperationManager.openCamera(getActivity());
             }
         } else {
             getActivity().finish();

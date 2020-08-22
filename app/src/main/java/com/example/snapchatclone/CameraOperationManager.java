@@ -14,17 +14,18 @@ import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
-import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
+
 import android.util.Log;
 import android.util.Range;
 import android.util.Size;
 import android.view.Surface;
+
+import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
 
 import java.lang.reflect.Field;
 import java.math.BigInteger;
@@ -85,6 +86,12 @@ class CameraOperationManager {
             try {
                 mCameraDevice.createCaptureSession(mCameraOutputSurfaceList, mCaptureSessionStateCallback, mHandler);
             } catch (CameraAccessException e) {
+                //e.printStackTrace();
+                //sometimes onpause gets called and the camera is closed before configuration
+                //so we need to not crash here do what nullify and empty stuff or what?
+                //
+            }catch(IllegalStateException e){
+                //this shouldn't happen
                 e.printStackTrace();
             }
         }
@@ -201,11 +208,11 @@ class CameraOperationManager {
             }
             exposureTimeRanges = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
             sensorSensitivityRanges = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
-            if(exposureTimeRanges != null) {
+            /*if(exposureTimeRanges != null) {
                 Log.i(TAG, "ExposureTimeRanges in ns => " + exposureTimeRanges.toString());
             }if(sensorSensitivityRanges != null) {
                 Log.i(TAG, "SensorSensitivityRanges => " + sensorSensitivityRanges.toString());
-            }
+            }*/
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }

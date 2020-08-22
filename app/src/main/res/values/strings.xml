@@ -3,11 +3,19 @@
     <string name="username">Username</string>
     <string name="password">Password</string>
     <string name="sign_in">Sign In</string>
-    <string name="sign_up">Create Account</string>
+    <string name="sign_up">Sign Up</string>
     <string name="email">example123@email.com</string>
     <string name="confirm_password">Confirm Password</string>
     <string name="cancel">Cancel</string>
     <string name="create">Create</string>
     <string name="new_here">New Here?</string>
     <string name="create_account">Create Account</string>
+    <string name="login">Log In</string>
+    <string name="chat">Chat</string>
+    <string name="preference_key">com.example.snapchatclone</string>
+    <string name="profile">Profile</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="confirmation_prompt">Enter verification code:</string>
+    <string name="verification_code_hint">123456</string>
+    <string name="confirm">Confirm</string>
 </resources>

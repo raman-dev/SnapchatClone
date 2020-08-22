@@ -1,27 +1,21 @@
 package com.example.snapchatclone;
 
 import android.content.Context;
-import android.graphics.Rect;
-import android.graphics.RectF;
+import android.content.SharedPreferences;
 import android.graphics.SurfaceTexture;
 import android.opengl.GLSurfaceView;
-import android.renderscript.Matrix4f;
+import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
-
-import java.util.Arrays;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 import graphics.CameraQuad;
 import graphics.RenderObject;
-import graphics.Triangle;
 
 import static android.opengl.GLES11Ext.GL_TEXTURE_EXTERNAL_OES;
 import static android.opengl.GLES20.GL_COLOR_BUFFER_BIT;
-import static android.opengl.GLES20.GL_TEXTURE0;
-import static android.opengl.GLES20.glActiveTexture;
 import static android.opengl.GLES20.glClear;
 import static android.opengl.GLES20.glClearColor;
 import static android.opengl.GLES20.glFlush;
@@ -29,6 +23,7 @@ import static android.opengl.GLES20.glViewport;
 
 class CameraRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFrameAvailableListener {
 
+    public static final String TAG = "CameraRenderer";
     private CameraOperationManager mCameraOperationManager;
     private CameraGLSurfaceView mCameraGLSurfaceView;
     private SurfaceTexture mSurfaceTexture;
@@ -42,19 +37,20 @@ class CameraRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFrameAv
     private Context context;
     private int displayRotation = -1;
     private int cameraOrientation = -1;
-    private Matrix4f textureTransformMatrix;
+    //private Matrix4f textureTransformMatrix;
 
-    private Triangle triangle;
-
+    //private Triangle triangle;
+    private SharedPreferences preferences;
     public CameraRenderer(Context context, CameraGLSurfaceView mCameraGLSurfaceView) {
         this.mCameraGLSurfaceView = mCameraGLSurfaceView;
         this.context = context;
+        this.preferences = context.getSharedPreferences(context.getResources().getString(R.string.preference_key),Context.MODE_PRIVATE);
 
         viewMatrix = new float[16];
         projectionMatrix = new float[16];
         mvpMatrix = new float[16];
 
-        textureTransformMatrix = new Matrix4f();
+        //textureTransformMatrix = new Matrix4f();
     }
 
     public void setCameraOperationManager(CameraOperationManager cameraOperationManager){
@@ -107,8 +103,17 @@ class CameraRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFrameAv
             }
             if(swapDimensions){
                 System.out.println("SWAP DIMENSIONS!!!");
+                String key = height+"x"+width;
+                String savedSize = preferences.getString(key,null);
 
-                outputSize = mCameraOperationManager.getApproximateSize(height,width);//swap since they are perpendicular
+                if(savedSize != null){
+                    String[] hw = savedSize.split("x");
+                    outputSize = new Size(Integer.parseInt(hw[0]),Integer.parseInt(hw[1]));
+                    Log.i(TAG,"Using Saved Size!");
+                }else {
+                    outputSize = mCameraOperationManager.getApproximateSize(height, width);//swap since they are perpendicular
+                    preferences.edit().putString(key,outputSize.toString()).commit();
+                }
 
                 verticesAndTexture = new float[]{
                         -outputSize.getHeight()/2, outputSize.getWidth()/2,0f,1f, 0f, 1f, //top-left 01
@@ -117,7 +122,19 @@ class CameraRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFrameAv
                         outputSize.getHeight()/2, outputSize.getWidth()/2,0f,1f, 1f, 1f, //top-right 00
                 };
             }else{
-                outputSize = mCameraOperationManager.getApproximateSize(width,height);//swap since they are perpendicular
+                //before requesting size from operation manager
+                //check sharedpreferences
+                String key = width+"x"+height;
+                String savedSize = preferences.getString(key,null);
+
+                if(savedSize != null){
+                    String[] hw = savedSize.split("x");
+                    outputSize = new Size(Integer.parseInt(hw[0]),Integer.parseInt(hw[1]));
+                    Log.i(TAG,"Using Saved Size!");
+                }else {
+                    outputSize = mCameraOperationManager.getApproximateSize(width, height);//swap since they are perpendicular
+                    preferences.edit().putString(key,outputSize.toString());
+                }
                 System.out.println("DO NOT SWAP DIMENSIONS!!!");
                 verticesAndTexture = new float[]{
                         -outputSize.getWidth()/2, outputSize.getHeight()/2,0f,1f, 1f, 1f,//top-left

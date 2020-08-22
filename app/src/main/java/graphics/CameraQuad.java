@@ -102,6 +102,7 @@ public class CameraQuad extends RenderObject {
         glBindBuffer(GL_ARRAY_BUFFER,buffers[1]);//bind my vertex buffer
 
         glActiveTexture(GL_TEXTURE0);
+
         mSurfaceTexture.updateTexImage();
         mSurfaceTexture.getTransformMatrix(textureTransform.getArray());
         //glBindTexture(GL_TEXTURE_EXTERNAL_OES,texDataReference);
