@@ -16,9 +16,9 @@ public class SnapchatCloneAmplifyApplication extends Application {
         super.onCreate();
         try {
             Amplify.addPlugin(new AWSApiPlugin());
-            Amplify.addPlugin(new AWSCognitoAuthPlugin());
+            Amplify.addPlugin(new AWSCognitoAuthPlugin());//sign in
+            Amplify.addPlugin(new AWSDataStorePlugin());//app-sync
 
-            //Amplify.addPlugin(new AWSDataStorePlugin());
             Amplify.configure(getApplicationContext());
 
             Log.i("AmplifyApp", "Initialized Amplify");

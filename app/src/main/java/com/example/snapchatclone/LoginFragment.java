@@ -7,9 +7,11 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.text.SpannableString;
+import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.method.LinkMovementMethod;
 import android.text.style.ClickableSpan;
+import android.text.style.ForegroundColorSpan;
 import android.transition.TransitionInflater;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -23,17 +25,28 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.fragment.app.Fragment;
 
+import com.amazonaws.mobile.client.AWSMobileClient;
+import com.amazonaws.mobile.client.Callback;
+import com.amazonaws.mobile.client.results.SignUpResult;
 import com.amazonaws.services.cognitoidentityprovider.model.UserNotConfirmedException;
 import com.amplifyframework.core.Amplify;
+import com.google.android.material.snackbar.Snackbar;
 
 public class LoginFragment extends Fragment implements View.OnClickListener, VerificationCodeDialog.VerificationDialogListener{
 
     private static final int USER_NOT_CONFIRMED = 0;
     private static final int UNHANDLED_AUTH_EVENT = 1;
     private static final int USER_CONFIRMED = 2;
+    private static final int USER_CONFIRMATION_FAILED = 3;
+    private static final int CONFIRMATION_RESENT = 4;
 
+
+
+    public static final String LOGIN_TITLE = "Log In";
+    public static final String LOGGING_IN_MESSAGE="Logging In...";
 
     private SpannableString mCreateAccountSpanString;
     private EditText mEmailEditText;//email is login username
@@ -41,6 +54,7 @@ public class LoginFragment extends Fragment implements View.OnClickListener, Ver
     private TextView mLoginLabel;
     private TextView mCreateAccountTextView;
     private ProgressBar mProgressBar;
+    private CoordinatorLayout mCoordinatorLayout;
     private Button mLoginButton;
 
     private AmplifySignInResultHandler mAmplifySignInResultHandler;
@@ -58,7 +72,6 @@ public class LoginFragment extends Fragment implements View.OnClickListener, Ver
         TransitionInflater inflater = TransitionInflater.from(requireContext());
         setEnterTransition(inflater.inflateTransition(R.transition.slide_up));
         setExitTransition(inflater.inflateTransition(R.transition.slide_up));
-        mAmplifySignInResultHandler = new AmplifySignInResultHandler(Looper.getMainLooper(),this);
     }
 
     @Nullable
@@ -67,26 +80,27 @@ public class LoginFragment extends Fragment implements View.OnClickListener, Ver
         View view = inflater.inflate(R.layout.login_layout, container, false);
 
         Log.i(TAG, "onCreateView!");
-        TextView textView = view.findViewById(R.id.create_account_textView);
-        textView.setText(mCreateAccountSpanString);
-        textView.setMovementMethod(LinkMovementMethod.getInstance());
 
-
+        mCoordinatorLayout = view.findViewById(R.id.login_coordinator);
         mEmailEditText = view.findViewById(R.id.login_email);
         mPasswordEditText = view.findViewById(R.id.login_password);
         mProgressBar = view.findViewById(R.id.login_progressBar);
         mLoginLabel = view.findViewById(R.id.login_label);
+
         mCreateAccountTextView = view.findViewById(R.id.create_account_textView);
+        mCreateAccountTextView.setText(mCreateAccountSpanString);
+        mCreateAccountTextView.setMovementMethod(LinkMovementMethod.getInstance());
 
         mLoginButton = view.findViewById(R.id.login_button);
         mLoginButton.setOnClickListener(this);
-
 
         return view;
     }
 
     @Override
     public void ConfirmCode(String verificationCode) {
+
+        Log.i(TAG,verificationCode);
         Amplify.Auth.confirmSignUp(
                 getEmail(),
                 verificationCode,
@@ -95,9 +109,25 @@ public class LoginFragment extends Fragment implements View.OnClickListener, Ver
                         mAmplifySignInResultHandler.sendMessage(mAmplifySignInResultHandler.obtainMessage(USER_CONFIRMED,isSignUpComplete));
                         Log.i("AuthQuickstart", isSignUpComplete ? "Confirm signUp succeeded" : "Confirm sign up not complete");
                     },
-                error -> Log.e("AuthQuickstart", error.toString())
+                error -> {
+                    Log.e("AuthQuickstart", error.toString());
+                    mAmplifySignInResultHandler.sendMessage(mAmplifySignInResultHandler.obtainMessage(USER_CONFIRMATION_FAILED,error.getCause().getMessage()));
+                }
         );
 
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        mAmplifySignInResultHandler = new AmplifySignInResultHandler(Looper.getMainLooper(),this,mCoordinatorLayout);
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        mAmplifySignInResultHandler.removeCallbacksAndMessages(null);
+        mAmplifySignInResultHandler = null;
     }
 
     @Override
@@ -108,31 +138,70 @@ public class LoginFragment extends Fragment implements View.OnClickListener, Ver
 
     private class AmplifySignInResultHandler extends Handler {
         private LoginFragment fragment;
-        public AmplifySignInResultHandler(Looper mainLooper,LoginFragment fragment) {
+        private CoordinatorLayout snackbarView;
+        private SpannableStringBuilder ssb;
+
+        public AmplifySignInResultHandler(Looper mainLooper,LoginFragment fragment,CoordinatorLayout view) {
             super(mainLooper);
             this.fragment = fragment;
+            snackbarView = view;
+            String snackText = getResources().getString(R.string.verification_code_error);
+            ssb = new SpannableStringBuilder().append(snackText);
+            ssb.setSpan(new ForegroundColorSpan(Color.WHITE), 0, snackText.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
 
         @Override
         public void handleMessage(Message msg) {
-            if(msg.what == USER_NOT_CONFIRMED){
-                mProgressBar.setVisibility(ProgressBar.INVISIBLE);
-                VerificationCodeDialog dialog = VerificationCodeDialog.newInstance(getEmail());
-                dialog.setVerificationDialogListener(fragment);
-                dialog.show(fragment.getFragmentManager(),"VerificationCodeDialog");
-            }else if(msg.what == UNHANDLED_AUTH_EVENT){
-                showLoggingIn(false,(String)msg.obj);
-            }else if(msg.what == USER_CONFIRMED){
-                boolean signUpComplete = (boolean) msg.obj;
-                showLoggingIn(signUpComplete,null);
-                if(signUpComplete) {
-                    signIn(getEmail(), getPassword());
-                }
-            }
-            else{
-                super.handleMessage(msg);
+
+            switch (msg.what){
+                case USER_NOT_CONFIRMED:
+                    mProgressBar.setVisibility(ProgressBar.INVISIBLE);
+                    VerificationCodeDialog dialog = VerificationCodeDialog.newInstance(getEmail());
+                    dialog.setVerificationDialogListener(fragment);
+                    dialog.show(fragment.getFragmentManager(),"VerificationCodeDialog");
+                    break;
+                case UNHANDLED_AUTH_EVENT:
+                    showLoggingIn(false,(String)msg.obj);
+                    break;
+                case USER_CONFIRMED:
+                    boolean signUpComplete = (boolean) msg.obj;
+                    showLoggingIn(signUpComplete,null);
+                    if(signUpComplete) {
+                        signIn(getEmail(), getPassword());
+                    }
+                    break;
+                case USER_CONFIRMATION_FAILED:
+                    //needs to be dismissed
+                    Snackbar snackbar = Snackbar.make(snackbarView,ssb,Snackbar.LENGTH_INDEFINITE);
+                    snackbar.setAction("RE-SEND",v -> resendConfirmation());
+                    snackbar.show();
+                    showLoggingIn(false,null);
+                    break;
+                case CONFIRMATION_RESENT:
+                    showLoggingIn(false,null);
+                    Toast.makeText(getActivity().getApplicationContext(),"Verification Code Sent",Toast.LENGTH_LONG).show();
+                    break;
+                default:
+                    super.handleMessage(msg);
             }
         }
+    }
+
+    private void resendConfirmation() {
+        AWSMobileClient awsMobileClient = (AWSMobileClient) Amplify.Auth.getPlugin("awsCognitoAuthPlugin").getEscapeHatch();
+        awsMobileClient.resendSignUp(getEmail(), new Callback<SignUpResult>() {
+            @Override
+            public void onResult(SignUpResult result) {
+
+                mAmplifySignInResultHandler.sendEmptyMessage(CONFIRMATION_RESENT);
+                Log.i("AuthQuickStart","Verification Code Resent.");
+            }
+
+            @Override
+            public void onError(Exception e) {
+                Log.e("AuthQuickStart", e.toString());
+            }
+        });
     }
 
     public void signIn(String username, String password) {
@@ -200,7 +269,7 @@ public class LoginFragment extends Fragment implements View.OnClickListener, Ver
 
         if(loggingIn) {
             mProgressBar.setVisibility(ProgressBar.VISIBLE);
-            mLoginLabel.setText("Logging In...");
+            mLoginLabel.setText(LOGGING_IN_MESSAGE);
             mLoginButton.setTextColor(Color.GRAY);
         }else{
             if(message != null) {
@@ -211,7 +280,7 @@ public class LoginFragment extends Fragment implements View.OnClickListener, Ver
             }
 
             mProgressBar.setVisibility(ProgressBar.INVISIBLE);
-            mLoginLabel.setText("Log In");
+            mLoginLabel.setText(LOGIN_TITLE);
             mLoginButton.setTextColor(Color.BLACK);
         }
 

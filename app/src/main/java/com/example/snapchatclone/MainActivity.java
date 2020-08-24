@@ -79,7 +79,7 @@ public class MainActivity extends AppCompatActivity {
                                 //user clicked login and login happened
                                 if(fragmentManager.findFragmentByTag("MainFragment") == null) {
                                     MainAppFragment fragment = new MainAppFragment();
-                                    mBottomSheetBackPressListener = (BottomSheetBackPressListener)fragment;
+                                    mBottomSheetBackPressListener = fragment;
                                     fragmentManager.beginTransaction()
                                             .replace(R.id.fragmentContainer, fragment,"MainFragment")
                                             .commit();
@@ -115,7 +115,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }else{
             MainAppFragment fragment = new MainAppFragment();
-            mBottomSheetBackPressListener = (BottomSheetBackPressListener)fragment;
+            mBottomSheetBackPressListener = fragment;
             fragmentManager.beginTransaction().replace(R.id.fragmentContainer, fragment,"MainFragment").commit();
         }
     }
