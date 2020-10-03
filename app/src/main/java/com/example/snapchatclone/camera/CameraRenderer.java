@@ -1,4 +1,4 @@
-package com.example.snapchatclone;
+package com.example.snapchatclone.camera;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -7,6 +7,8 @@ import android.opengl.GLSurfaceView;
 import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
+
+import com.example.snapchatclone.R;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -21,6 +23,7 @@ import static android.opengl.GLES20.glClearColor;
 import static android.opengl.GLES20.glFlush;
 import static android.opengl.GLES20.glViewport;
 
+@Deprecated
 class CameraRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFrameAvailableListener {
 
     public static final String TAG = "CameraRenderer";
@@ -148,9 +151,18 @@ class CameraRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFrameAv
             //if the sensor and display have the same orientation then
             //tex coordinates become 1 to 1 mappings
             //the indices would be 0,1,2,2,3,0
+            //grab the output size and send
+            //ImageReader.newInstance(outputSize.getWidth(),outputSize.getHeight(), ImageFormat.JPEG,1);
+            //send size main thread or w/e thread the shit is on
+            //this runs on the mainThread?
+            //send size to imaghandlerthread
+
+            Log.i("OnSurfaceChanged",Thread.currentThread().getName());
             System.out.println("Selected output_size =>"+outputSize.toString());
             configureSurfaceAndCameraQuad(verticesAndTexture,outputSize.getWidth(),outputSize.getHeight());
             mCameraOperationManager.addSurface(new Surface(mSurfaceTexture));
+            //send size to to camerafragment thread
+            mCameraOperationManager.setImageOutputSize(outputSize);
             //set mvp matrix here
             //calculate an orthographic projection depending on viewport height and width
             //this is so triangles can be created in a space from -width/2 to +width/2 and -height/2 to + height/2

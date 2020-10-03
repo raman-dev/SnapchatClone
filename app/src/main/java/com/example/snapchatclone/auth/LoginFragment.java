@@ -1,4 +1,4 @@
-package com.example.snapchatclone;
+package com.example.snapchatclone.auth;
 
 import android.content.Context;
 import android.graphics.Color;
@@ -33,9 +33,16 @@ import com.amazonaws.mobile.client.Callback;
 import com.amazonaws.mobile.client.results.SignUpResult;
 import com.amazonaws.services.cognitoidentityprovider.model.UserNotConfirmedException;
 import com.amplifyframework.core.Amplify;
+import com.example.snapchatclone.MainActivity;
+import com.example.snapchatclone.R;
 import com.google.android.material.snackbar.Snackbar;
+import com.google.android.material.textfield.TextInputLayout;
 
-public class LoginFragment extends Fragment implements View.OnClickListener, VerificationCodeDialog.VerificationDialogListener{
+public class LoginFragment extends Fragment implements
+        View.OnClickListener,
+        VerificationCodeDialog.VerificationDialogListener,
+        SignUpFragment.FragmentRemoveListener
+{
 
     private static final int USER_NOT_CONFIRMED = 0;
     private static final int UNHANDLED_AUTH_EVENT = 1;
@@ -49,8 +56,8 @@ public class LoginFragment extends Fragment implements View.OnClickListener, Ver
     public static final String LOGGING_IN_MESSAGE="Logging In...";
 
     private SpannableString mCreateAccountSpanString;
-    private EditText mEmailEditText;//email is login username
-    private EditText mPasswordEditText;
+    private TextInputLayout mEmailEditText;//email is login username
+    private TextInputLayout mPasswordEditText;
     private TextView mLoginLabel;
     private TextView mCreateAccountTextView;
     private ProgressBar mProgressBar;
@@ -60,6 +67,8 @@ public class LoginFragment extends Fragment implements View.OnClickListener, Ver
     private AmplifySignInResultHandler mAmplifySignInResultHandler;
 
     private static final String TAG = "LoginFragment";
+    private boolean isLaunchingSignUp;
+    private LoginCompleteListener mLoginListener;
 
     public void setClickableSpan(ClickableSpan mClickableSpan, String linkString) {
         mCreateAccountSpanString = new SpannableString(linkString);
@@ -70,8 +79,8 @@ public class LoginFragment extends Fragment implements View.OnClickListener, Ver
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         TransitionInflater inflater = TransitionInflater.from(requireContext());
-        setEnterTransition(inflater.inflateTransition(R.transition.slide_up));
-        setExitTransition(inflater.inflateTransition(R.transition.slide_up));
+        setEnterTransition(inflater.inflateTransition(R.transition.fade_in));
+        setExitTransition(inflater.inflateTransition(R.transition.fade_out));
     }
 
     @Nullable
@@ -79,7 +88,7 @@ public class LoginFragment extends Fragment implements View.OnClickListener, Ver
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.login_layout, container, false);
 
-        Log.i(TAG, "onCreateView!");
+        //Log.i(TAG, "onCreateView!");
 
         mCoordinatorLayout = view.findViewById(R.id.login_coordinator);
         mEmailEditText = view.findViewById(R.id.login_email);
@@ -87,7 +96,28 @@ public class LoginFragment extends Fragment implements View.OnClickListener, Ver
         mProgressBar = view.findViewById(R.id.login_progressBar);
         mLoginLabel = view.findViewById(R.id.login_label);
 
-        mCreateAccountTextView = view.findViewById(R.id.create_account_textView);
+
+        setClickableSpan(new ClickableSpan() {
+            @Override
+            public void onClick(@NonNull View view) {
+                if (isLaunchingSignUp) {
+                    return;
+                }
+                isLaunchingSignUp = true;
+                SignUpFragment fragment = new SignUpFragment();
+                fragment.setFragmentRemoveListener(LoginFragment.this);
+                getParentFragmentManager().beginTransaction()
+                        .replace(R.id.login2_container, fragment)
+                        ///use add so fragment slides over without destroying login
+                        //don't use add
+                        //when using .add(parent_layout,fragment)
+                        //the last fragment stays alive
+                        //when using .replace(parent_layout,fragment)
+                        .addToBackStack("SignUpFragment")
+                        .commit();
+            }
+        },"Create Account");
+        mCreateAccountTextView = view.findViewById(R.id.createAccount2_textView);
         mCreateAccountTextView.setText(mCreateAccountSpanString);
         mCreateAccountTextView.setMovementMethod(LinkMovementMethod.getInstance());
 
@@ -107,10 +137,10 @@ public class LoginFragment extends Fragment implements View.OnClickListener, Ver
                 result -> {
                         boolean isSignUpComplete = result.isSignUpComplete();
                         mAmplifySignInResultHandler.sendMessage(mAmplifySignInResultHandler.obtainMessage(USER_CONFIRMED,isSignUpComplete));
-                        Log.i("AuthQuickstart", isSignUpComplete ? "Confirm signUp succeeded" : "Confirm sign up not complete");
+                        //Log.i("AmplifyAuth", isSignUpComplete ? "Confirm signUp succeeded" : "Confirm sign up not complete");
                     },
                 error -> {
-                    Log.e("AuthQuickstart", error.toString());
+                    Log.e("AmplifyAuth", error.toString());
                     mAmplifySignInResultHandler.sendMessage(mAmplifySignInResultHandler.obtainMessage(USER_CONFIRMATION_FAILED,error.getCause().getMessage()));
                 }
         );
@@ -134,6 +164,21 @@ public class LoginFragment extends Fragment implements View.OnClickListener, Ver
     public void CancelConfirmCode() {
         //reenable login inputs
         showLoggingIn(false,null);
+    }
+
+    @Override
+    public void OnSignUpFragmentRemoved() {
+        isLaunchingSignUp = false;
+    }
+
+    public interface LoginCompleteListener {
+        void OnUserSignedIn();
+    }
+
+    @Override
+    public void onAttach(@NonNull Context context) {
+        super.onAttach(context);
+        mLoginListener = (LoginCompleteListener)context;
     }
 
     private class AmplifySignInResultHandler extends Handler {
@@ -181,6 +226,9 @@ public class LoginFragment extends Fragment implements View.OnClickListener, Ver
                     showLoggingIn(false,null);
                     Toast.makeText(getActivity().getApplicationContext(),"Verification Code Sent",Toast.LENGTH_LONG).show();
                     break;
+                case MainActivity.SIGNED_IN:
+                    mLoginListener.OnUserSignedIn();
+                    break;
                 default:
                     super.handleMessage(msg);
             }
@@ -189,19 +237,21 @@ public class LoginFragment extends Fragment implements View.OnClickListener, Ver
 
     private void resendConfirmation() {
         AWSMobileClient awsMobileClient = (AWSMobileClient) Amplify.Auth.getPlugin("awsCognitoAuthPlugin").getEscapeHatch();
-        awsMobileClient.resendSignUp(getEmail(), new Callback<SignUpResult>() {
-            @Override
-            public void onResult(SignUpResult result) {
+        if (awsMobileClient != null) {
+            awsMobileClient.resendSignUp(getEmail(), new Callback<SignUpResult>() {
+                @Override
+                public void onResult(SignUpResult result) {
 
-                mAmplifySignInResultHandler.sendEmptyMessage(CONFIRMATION_RESENT);
-                Log.i("AuthQuickStart","Verification Code Resent.");
-            }
+                    mAmplifySignInResultHandler.sendEmptyMessage(CONFIRMATION_RESENT);
+                    Log.i("AuthQuickStart","Verification Code Resent.");
+                }
 
-            @Override
-            public void onError(Exception e) {
-                Log.e("AuthQuickStart", e.toString());
-            }
-        });
+                @Override
+                public void onError(Exception e) {
+                    Log.e("AuthQuickStart", e.toString());
+                }
+            });
+        }
     }
 
     public void signIn(String username, String password) {
@@ -209,12 +259,18 @@ public class LoginFragment extends Fragment implements View.OnClickListener, Ver
         Amplify.Auth.signIn(
                 username, //grab username from dialog
                 password, //grab password from dialog
-                result ->/* this event is handled in the mainactivity */
-                        Log.i("AuthQuickstart", result.isSignInComplete() ? "Sign in succeeded" : "Sign in not complete"),
+                result ->// this event is handled in the mainactivity
+                    {
+                        Log.i("AmplifyAuth", result.isSignInComplete() ? "Sign in succeeded" : "Sign in not complete");
+                        if(result.isSignInComplete()){
+                            mAmplifySignInResultHandler.sendEmptyMessage(MainActivity.SIGNED_IN);
+                        }
+                        //we need to query for the user object that belongs to current user
+                    },
                 error -> {
                     //now what?
 
-                    Log.e("AuthQuickstart", error.toString());
+                    Log.e("AmplifyAuth", error.toString());
 
                     if(error.getCause() instanceof UserNotConfirmedException){
                         //launch confirmation dialog
@@ -231,15 +287,16 @@ public class LoginFragment extends Fragment implements View.OnClickListener, Ver
     }
 
     public String getPassword() {
-        return mPasswordEditText.getText().toString();
+        return mPasswordEditText.getEditText().getText().toString();
     }
 
     public String getEmail() {
-        return mEmailEditText.getText().toString();
+        return mEmailEditText.getEditText().getText().toString();
     }
 
     @Override
     public void onClick(View v) {
+
         String email = getEmail();
         String password = getPassword();
         //make sure non empty

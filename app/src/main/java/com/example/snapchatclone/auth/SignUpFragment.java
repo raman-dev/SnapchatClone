@@ -1,4 +1,4 @@
-package com.example.snapchatclone;
+package com.example.snapchatclone.auth;
 
 import android.content.Context;
 import android.graphics.Color;
@@ -24,8 +24,8 @@ import androidx.fragment.app.Fragment;
 import com.amplifyframework.auth.AuthUserAttributeKey;
 import com.amplifyframework.auth.options.AuthSignUpOptions;
 import com.amplifyframework.core.Amplify;
-
-import java.util.InputMismatchException;
+import com.example.snapchatclone.R;
+import com.google.android.material.textfield.TextInputLayout;
 
 public class SignUpFragment extends Fragment implements View.OnClickListener {
 
@@ -34,21 +34,24 @@ public class SignUpFragment extends Fragment implements View.OnClickListener {
     private static final int SIGN_UP_ERROR = 3;
 
     private TextView mSignUpLabel;
-    private EditText mUsernameEditText;
-    private EditText mPasswordEditText;
-    private EditText mConfirmPasswordEditText;
-    private EditText mEmailEditText;
+
+    private TextInputLayout mUsernameEditText;
+    private TextInputLayout mPasswordEditText;
+    private TextInputLayout mConfirmPasswordEditText;
+    private TextInputLayout mEmailEditText;
+
     private Button mSignUpButton;
 
     private AmplifySignUpResultHandler mAmplifySignUpResultHandler;
+    private FragmentRemoveListener mFragmentRemoveListener;
 
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         TransitionInflater inflater = TransitionInflater.from(requireContext());
-        setEnterTransition(inflater.inflateTransition(R.transition.slide_left));
-        setExitTransition(inflater.inflateTransition(R.transition.slide_right));
+        setEnterTransition(inflater.inflateTransition(R.transition.slide_left_fade_in));
+        setExitTransition(inflater.inflateTransition(R.transition.slide_right_fade_out));
     }
 
     @Nullable
@@ -58,15 +61,16 @@ public class SignUpFragment extends Fragment implements View.OnClickListener {
 
         Toolbar toolbar = view.findViewById(R.id.signup_toolbar);
         toolbar.setNavigationOnClickListener(v -> {
-            Log.i(TAG,"go back to login");
-            getFragmentManager().popBackStack();//remove myself from the backstack
+            //Log.i(TAG,"go back to login");
+            getParentFragmentManager()
+                    .popBackStack();//remove myself from the backstack
         });
 
         mSignUpLabel = view.findViewById(R.id.signup_label);
         mUsernameEditText = view.findViewById(R.id.signup_username);
         mEmailEditText = view.findViewById(R.id.signup_email);
-        mPasswordEditText = view.findViewById(R.id.signup_password);
-        mConfirmPasswordEditText = view.findViewById(R.id.confirm_password);
+        mPasswordEditText = view.findViewById(R.id.signup_passwordInputLayout);
+        mConfirmPasswordEditText = view.findViewById(R.id.signup_confirmPasswordInputLayout);
 
         mSignUpButton = view.findViewById(R.id.signup_button);
         mSignUpButton.setOnClickListener(this);
@@ -75,10 +79,17 @@ public class SignUpFragment extends Fragment implements View.OnClickListener {
     }
 
     @Override
+    public void onAttach(@NonNull Context context) {
+        super.onAttach(context);
+    }
+
+    @Override
     public void onResume() {
         super.onResume();
         mAmplifySignUpResultHandler = new AmplifySignUpResultHandler(Looper.myLooper());//always running on main ui thread
     }
+
+
 
     @Override
     public void onPause() {
@@ -88,24 +99,34 @@ public class SignUpFragment extends Fragment implements View.OnClickListener {
     }
 
     public String getUserName() {
-        return mUsernameEditText.getText().toString();
+        return mUsernameEditText.getEditText().getText().toString();
     }
 
     public String getEmail() {
-        return mEmailEditText.getText().toString();
+        return mEmailEditText.getEditText().getText().toString();
     }
 
     public String getPassword() {
-        String password = mPasswordEditText.getText().toString();
-        String confirmation = mConfirmPasswordEditText.getText().toString();
+        String password = mPasswordEditText.getEditText().getText().toString();
+        String confirmation = mConfirmPasswordEditText.getEditText().getText().toString();
 
         if(!password.equals(confirmation)){
-            throw new InputMismatchException();
+            //throw new InputMismatchException();
+            mConfirmPasswordEditText.setError("Passwords do not match!");
+            return null;
         }
         return password;
     }
 
-    private class AmplifySignUpResultHandler extends Handler{
+    public void setFragmentRemoveListener(FragmentRemoveListener mFragmentRemoveListener) {
+        this.mFragmentRemoveListener = mFragmentRemoveListener;
+    }
+
+    public interface FragmentRemoveListener {
+        void OnSignUpFragmentRemoved();
+    }
+
+    private class AmplifySignUpResultHandler extends Handler {
         public AmplifySignUpResultHandler(Looper looper) {
             super(looper);
         }
@@ -139,15 +160,15 @@ public class SignUpFragment extends Fragment implements View.OnClickListener {
     }
 
     public void signUp(String username, String email, String password) {
-        Log.i("SignUpDialog", "username => " + username);
-        Log.i("SignUpDialog", "email => " + email);
-        Log.i("SignUpDialog", "password => " + password);
+        //Log.i("SignUpDialog", "username => " + username);
+        //Log.i("SignUpDialog", "email => " + email);
+        //Log.i("SignUpDialog", "password => " + password);
         Amplify.Auth.signUp(
                 email,
                 password,
                 AuthSignUpOptions.builder().userAttribute(AuthUserAttributeKey.preferredUsername(), username).build(),
                 result -> {
-                    Log.i("AuthQuickStart", "Result: " + result.toString());
+                    //Log.i("AuthQuickStart", "Result: " + result.toString());
                     mAmplifySignUpResultHandler.sendMessage(mAmplifySignUpResultHandler.obtainMessage(USER_SIGN_UP_RESULT,result.isSignUpComplete()));
                 },
                 error -> {
@@ -159,9 +180,19 @@ public class SignUpFragment extends Fragment implements View.OnClickListener {
     }
 
     @Override
+    public void onDetach() {
+        super.onDetach();
+        mFragmentRemoveListener.OnSignUpFragmentRemoved();
+    }
+
+    @Override
     public void onClick(View v) {
+        String password = getPassword();
+        if(password == null){
+            return;
+        }
         showSigningUp(true);
-        signUp(getUserName(),getEmail(),getPassword());
+        signUp(getUserName(),getEmail(),password);
     }
 
     private void showSigningUp(boolean isSigningUp) {

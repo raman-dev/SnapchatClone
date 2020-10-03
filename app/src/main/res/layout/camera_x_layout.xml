@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".camera.CameraXFragment">
+
+    <!-- TODO: Update blank fragment layout -->
+    <androidx.camera.view.PreviewView
+        android:id="@+id/cameraX_previewView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+
+    </androidx.camera.view.PreviewView>
+    <ImageButton
+        android:id="@+id/captureImage_button"
+        android:layout_width="84dp"
+        android:layout_height="84dp"
+        android:layout_marginBottom="64dp"
+        android:background="@drawable/ic_white_button"
+        android:layout_gravity="center_horizontal|bottom"
+        android:text="@string/capture" />
+</FrameLayout>

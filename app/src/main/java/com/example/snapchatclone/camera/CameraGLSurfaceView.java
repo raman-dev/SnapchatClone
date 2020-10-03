@@ -1,9 +1,10 @@
-package com.example.snapchatclone;
+package com.example.snapchatclone.camera;
 
 import android.content.Context;
 import android.opengl.GLSurfaceView;
 import android.util.AttributeSet;
 
+@Deprecated
 public class CameraGLSurfaceView extends GLSurfaceView {
 
     private CameraRenderer mCameraRenderer;

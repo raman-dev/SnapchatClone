@@ -13,100 +13,122 @@
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        app:navigationIcon="?attr/homeAsUpIndicator"
-        />
+        app:navigationIcon="?attr/homeAsUpIndicator" />
 
 
-    <EditText
+    <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/signup_username"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginVertical="16dp"
         android:ems="10"
-        android:text="raman.bhatti"
-        android:hint="@string/username"
-        android:inputType="textPersonName"
+
         app:layout_constraintBottom_toTopOf="@+id/signup_email"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="parent">
 
-    <EditText
+        <com.google.android.material.textfield.TextInputEditText
+            android:hint="@string/username"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ems="10"
+            android:inputType="textPersonName" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/signup_email"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginVertical="16dp"
-        android:text="ramandeepbhatti@live.ca"
+        android:layout_marginVertical="4dp"
         android:ems="10"
-        android:hint="@string/email"
-
-        android:inputType="textEmailAddress"
 
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.5">
 
-    <EditText
-        android:id="@+id/signup_password"
+        <com.google.android.material.textfield.TextInputEditText
+            android:hint="@string/email"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ems="10"
+            android:inputType="textEmailAddress" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/signup_passwordInputLayout"
+        app:passwordToggleEnabled="true"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginVertical="4dp"
+        app:layout_constraintStart_toStartOf="@id/signup_email"
+        app:layout_constraintTop_toBottomOf="@+id/signup_email">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:hint="@string/password"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ems="10"
+            android:inputType="textPassword"/>
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/signup_confirmPasswordInputLayout"
+        app:passwordToggleEnabled="true"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginVertical="16dp"
-        android:text="password123"
-        android:ems="10"
-        android:hint="@string/password"
-        android:inputType="textPassword"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/signup_email" />
+        app:layout_constraintStart_toStartOf="@id/signup_passwordInputLayout"
+        app:layout_constraintTop_toBottomOf="@+id/signup_passwordInputLayout"
+        >
 
+        <com.google.android.material.textfield.TextInputEditText
+            android:hint="@string/confirm_password"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:inputType="textPassword"
+            android:ems="10"
 
-    <EditText
-        android:id="@+id/confirm_password"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginVertical="16dp"
-        android:ems="10"
-        android:text="password123"
-        android:hint="@string/confirm_password"
-        android:inputType="textPassword"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/signup_password" />
+            />
+
+    </com.google.android.material.textfield.TextInputLayout>
 
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:weightSum="1"
+        android:layout_marginBottom="80dp"
         android:gravity="center_horizontal"
-
+        android:weightSum="1"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/confirm_password"
-        >
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent">
+
         <Button
             android:id="@+id/signup_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/sign_up"
-            android:layout_weight="0.35"
-            />
+            android:layout_weight="0.5"
+            android:background="@drawable/custom_button"
+            android:text="@string/sign_up" />
     </LinearLayout>
-
-
 
     <TextView
         android:id="@+id/signup_label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginTop="112dp"
         android:text="@string/sign_up"
         android:textSize="32sp"
-        app:layout_constraintBottom_toTopOf="@+id/signup_username"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.7" />
+        app:layout_constraintTop_toBottomOf="@id/signup_toolbar" />
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,10 +1,8 @@
-package com.example.snapchatclone;
+package com.example.snapchatclone.auth;
 
 import android.app.AlertDialog;
 import android.app.Dialog;
-import android.content.Context;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.EditText;
@@ -14,7 +12,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.DialogFragment;
 
-import com.amplifyframework.core.Amplify;
+import com.example.snapchatclone.R;
 
 public class VerificationCodeDialog extends DialogFragment {
 

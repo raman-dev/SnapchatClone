@@ -1,131 +1,186 @@
 package com.example.snapchatclone;
 
+import android.content.Context;
 import android.os.Bundle;
-
-import android.util.Log;
+import android.os.Handler;
+import android.transition.TransitionInflater;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
+import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.amplifyframework.datastore.generated.model.Post;
-import com.google.android.material.bottomsheet.BottomSheetBehavior;
-
-import org.w3c.dom.Text;
+import com.amplifyframework.core.Amplify;
+import com.amplifyframework.datastore.generated.model.Message;
 
 import java.util.ArrayList;
 
-public class ChatFragment extends Fragment implements View.OnClickListener {
+/**
+ * A simple {@link Fragment} subclass.
+ * Use the {@link ChatFragment#newInstance} factory method to
+ * create an instance of this fragment.
+ */
+public class ChatFragment extends Fragment implements
+        TextView.OnEditorActionListener,
+        ChatListFragment.ReceiveMessageListener{
+    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
+    private ChatMessageAdapter mAdapter;
+    private LinearLayoutManager mLayoutManager;
+    private EditText mChatEditText;
 
-    private static final String TAG = "ChatFragment";
-    private BottomSheetBehavior mBottomSheet;
-    private RecyclerView mAppSyncRecyclerView;
-    private RecyclerView.Adapter mAdapter;
-    private RecyclerView.LayoutManager mLayoutManager;
-    private ArrayList<Post> mDataSet;
+    private String authorId = null;
+    private String conversationId = null;
+    private String recipientId = null;
+    //testing ids
+    //place holder values we need to query and set these for each
+    private String chatTitle;
 
+    LinearLayout mChatContainer;
 
-    public void setBottomSheet(BottomSheetBehavior mBottomSheet){
-        this.mBottomSheet = mBottomSheet;
+    private FragmentRemovedListener mFragmentRemovedListener;
+    private Handler handler;
+
+    public ChatFragment() {
+        // Required empty public constructor
     }
 
-    @Nullable
+    /**
+     * Use this factory method to create a new instance of
+     * this fragment using the provided parameters.
+     *
+     * @param conversationId the conversation id of the chat
+     * @return A new instance of fragment ChatFragment.
+     */
+    public static ChatFragment newInstance(String chatTitle, String recipientId, String conversationId, ArrayList<Message> message_list) {
+        ChatFragment fragment = new ChatFragment();
+        Bundle args = new Bundle();
+        //split into 2 arrays since message is not serializable or extendable
+        args.putString("CHAT_TITLE", chatTitle);
+        args.putString("CONVERSATION_ID", conversationId);//conversationid
+        args.putString("RECIPIENT_ID", recipientId);
+        ArrayList<MessageLite> list = new ArrayList<>();
+        message_list.forEach( message -> list.add(new MessageLite(message)));
+        args.putParcelableArrayList("MESSAGE_LIST",list);
+        fragment.setArguments(args);
+        return fragment;
+    }
+
+    private RecyclerView mRecyclerView;
+    private ArrayList<MessageLite> mMessageList;
+
+    public void setLocalMessageHandler(Handler handler){
+        this.handler = handler;
+    }
+
+    //private Random random;
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        Log.i(TAG, "onCreateView");
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        if (getArguments() != null) {
+            //getArguments().getString()
+            Bundle bundle = getArguments();
+            conversationId = bundle.getString("CONVERSATION_ID");
+            chatTitle = bundle.getString("CHAT_TITLE");
+            recipientId = bundle.getString("RECIPIENT_ID");
+            mMessageList = bundle.getParcelableArrayList("MESSAGE_LIST");
+            //create the message objects and then add it to the mdataset
+        }
+        TransitionInflater inflater = TransitionInflater.from(requireContext());
+        setEnterTransition(inflater.inflateTransition(R.transition.slide_right));
+        setExitTransition(inflater.inflateTransition(R.transition.slide_left));
+    }
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                             Bundle savedInstanceState) {
+        // Inflate the layout for this fragment
         View view = inflater.inflate(R.layout.chat_layout, container, false);
-        view.findViewById(R.id.profile).setOnClickListener(this);
-        mAppSyncRecyclerView = view.findViewById(R.id.appsync_recyclerView);
-        mLayoutManager = new LinearLayoutManager(inflater.getContext());
-        mAppSyncRecyclerView.setLayoutManager(mLayoutManager);
-        mDataSet = new ArrayList<>();
-        mAdapter = new PostAdapter(mDataSet);
-        mAppSyncRecyclerView.setAdapter(mAdapter);
+
+        authorId = Amplify.Auth.getCurrentUser().getUserId();
+        mAdapter = new ChatMessageAdapter(mMessageList, authorId);
+        mRecyclerView = view.findViewById(R.id.chat_messageRecyclerView);
+        mLayoutManager = new LinearLayoutManager(container.getContext());
+        mLayoutManager.setStackFromEnd(true);//get recyclerview to show new items at the bottom
+        mRecyclerView.setLayoutManager(mLayoutManager);
+        mRecyclerView.setAdapter(mAdapter);
+        //sort the message list
+        mMessageList.sort((m0, m1) -> m0.time_stamp.compareTo(m1.time_stamp));
+        mChatEditText = view.findViewById(R.id.chat_textInputEditText);
+        mChatEditText.setOnEditorActionListener(this);
+        mChatContainer = view.findViewById(R.id.chat_container);
+        ((TextView) view.findViewById(R.id.chat_title)).setText(chatTitle);
         return view;
     }
 
     @Override
     public void onResume() {
         super.onResume();
+
+        //delay so we wait until transition is complete
+        mChatEditText.requestFocus();
+        if(mMessageList.size() > 0) {
+            mRecyclerView.scrollToPosition(mMessageList.size() - 1);
+        }
     }
 
     @Override
-    public void onPause() {
-        super.onPause();
-        Log.i(TAG, "onPause");
+    public void onAttach(@NonNull Context context) {
+        super.onAttach(context);
+        mFragmentRemovedListener = (FragmentRemovedListener)context;
     }
 
     @Override
-    public void onClick(View v) {
-        switch(v.getId()){
-            case R.id.profile:
-                mBottomSheet.setState(BottomSheetBehavior.STATE_EXPANDED);
-                break;
-        }
+    public void onDetach() {
+        super.onDetach();
+        mFragmentRemovedListener.OnFragmentRemoved();
     }
 
-    private class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder> {
-        ArrayList<Post> mDataSet;
-        private class PostViewHolder extends RecyclerView.ViewHolder {
-            TextView id;
-            TextView title;
-            TextView status;
-            TextView rating;
-            TextView content;
-
-            public PostViewHolder(@NonNull View itemView) {
-                super(itemView);
-
-                id = itemView.findViewById(R.id.post_id);
-                title = itemView.findViewById(R.id.post_title);
-                status = itemView.findViewById(R.id.post_status);
-                rating = itemView.findViewById(R.id.post_rating);
-                content = itemView.findViewById(R.id.post_content);
-            }
-
-            public void setData(Post post){
-                id.setText(post.getId());
-                title.setText(post.getId());
-                status.setText(""+post.getStatus());
-                rating.setText(post.getRating());
-                content.setText(post.getContent());
-            }
+    @Override
+    public boolean onEditorAction(TextView textView, int actionId, KeyEvent keyEvent) {
+        if (actionId == EditorInfo.IME_ACTION_SEND) {
+            sendMessage(mChatEditText.getText().toString());
         }
-
-        public PostAdapter(ArrayList<Post> mDataSet){
-            this.mDataSet = mDataSet;
-        }
-
-        @NonNull
-        @Override
-        public PostViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.post_item_layout,parent,false);
-            PostViewHolder postViewHolder = new PostViewHolder(view);
-            return postViewHolder;
-        }
-
-        @Override
-        public void onBindViewHolder(@NonNull PostViewHolder holder, int position) {
-            //maybe query before or query now?
-            //now for each post in the post populate each holder
-            for (int i = 0; i < mDataSet.size(); i++) {
-                holder.setData(mDataSet.get(i));
-            }
-        }
-
-        @Override
-        public int getItemCount() {
-            return mDataSet.size();
-        }
-
-
+        //clear text after sent is clicked
+        mChatEditText.getText().clear();
+        return false;
     }
 
+    private void sendMessage(String content) {
+        //send a message from here this should add the message to the recycler view but not
+        //
 
+        Message message = Message.builder()
+                .authorId(authorId)
+                .recipientId(recipientId)
+                .conversationId(conversationId)
+                .isSnap(false)
+                .content(content)
+                .build();
+        mMessageList.add(new MessageLite(message));
+        mAdapter.notifyItemInserted(mMessageList.size() - 1);
+        mRecyclerView.scrollToPosition(mMessageList.size() - 1);
+        //
+        //ENABLE THIS TO SEND TO SERVER
+        //need to give this a handle to the chat fragment handler
+        SnapchatAPI.SendMessage(handler,ChatListFragment.RECEIVED_USER_MESSAGE_LOCAL,authorId,recipientId,conversationId,content);
+    }
+
+    /**
+     * Receive messages in realtime
+     * @param message Realtime message
+     */
+    @Override
+    public void OnReceiveMessage(Message message) {
+        mMessageList.add(new MessageLite(message));
+        mAdapter.notifyItemInserted(mMessageList.size() - 1);
+        mRecyclerView.scrollToPosition(mMessageList.size() - 1);
+    }
 }

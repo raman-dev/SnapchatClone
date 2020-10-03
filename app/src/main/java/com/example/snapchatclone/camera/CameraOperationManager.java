@@ -1,4 +1,4 @@
-package com.example.snapchatclone;
+package com.example.snapchatclone.camera;
 
 import android.Manifest;
 import android.app.Activity;
@@ -16,9 +16,13 @@ import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.media.Image;
+import android.media.ImageReader;
 import android.os.Handler;
 import android.os.HandlerThread;
 
+import android.os.Looper;
+import android.os.Message;
 import android.util.Log;
 import android.util.Range;
 import android.util.Size;
@@ -31,21 +35,31 @@ import java.lang.reflect.Field;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.concurrent.ArrayBlockingQueue;
 
-class CameraOperationManager {
+@Deprecated
+public class CameraOperationManager {
 
-    static final int CAMERA_CODE = 99;
+    private static final int NEW_SURFACE = 234;
+    public static final int IMAGE_OUTPUT_SIZE = 0;
+    public static final int CAMERA_CODE = 99;
+
     private static final String TAG = "CameraOperationManager";
 
     static final String BACK_CAMERA = "BACK_CAMERA";
     static final String FRONT_CAMERA = "FRONT_CAMERA";
+    private final ImageReceiver mImageReceiver;
+
     private ArrayList<Surface> mCameraOutputSurfaceList;
     private CameraCharacteristics mCameraCharacteristics;
-    private Range<Long> exposureTimeRanges;
+    /*private Range<Long> exposureTimeRanges;
     private Range<Integer> sensorSensitivityRanges;
     private long exposure_time = 20000000;//smaller exposure time means more images per second but also darker
-    private int sensorSensitivity = 1500;
+    private int sensorSensitivity = 1500;*/
+    private CaptureRequest mSingleCaptureRequest;
+
+    public interface ImageReceiver{
+        void OnReceiveImage(Image image);
+    }
 
     public int getCameraOrientation() {
         int rotation = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
@@ -70,30 +84,7 @@ class CameraOperationManager {
         public void onOpened(@NonNull CameraDevice camera) {
             Log.i(TAG, "Camera Opened!");
             mCameraDevice = camera;
-            //need to wait until at least one output surface is available
-            if(mCameraOutputSurfaceList.isEmpty()){
-                try {
-                    Log.i(TAG,"Waiting for surface...");
-                    mCameraOutputSurfaceList.add(blockingQ.take());
-                    if(blockingQ.size() > 0){
-                        blockingQ.drainTo(mCameraOutputSurfaceList);
-                    }
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-
-            try {
-                mCameraDevice.createCaptureSession(mCameraOutputSurfaceList, mCaptureSessionStateCallback, mHandler);
-            } catch (CameraAccessException e) {
-                //e.printStackTrace();
-                //sometimes onpause gets called and the camera is closed before configuration
-                //so we need to not crash here do what nullify and empty stuff or what?
-                //
-            }catch(IllegalStateException e){
-                //this shouldn't happen
-                e.printStackTrace();
-            }
+            //no preview surface yet so wait
         }
 
         @Override
@@ -160,19 +151,74 @@ class CameraOperationManager {
             System.out.println("onCaptureFailed!!!");
         }
     };
+    private CameraCaptureSession.CaptureCallback mSingleCaptureCallback = new CameraCaptureSession.CaptureCallback() {
+        @Override
+        public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull TotalCaptureResult result) {
+            super.onCaptureCompleted(session, request, result);
+            startCameraPreview();//restart camera preview
+        }
+    };
 
     private Handler mHandler;
     private HandlerThread mHandlerThread;
-    private ArrayBlockingQueue<Surface> blockingQ;
 
+    public void setImageOutputSize(Size size) {
+        mHandler.sendMessage(mHandler.obtainMessage(IMAGE_OUTPUT_SIZE, size));
+        //Log.i(TAG,"GIVEN SIZE => "+size.toString());
+    }
+
+    private class CameraHandler extends Handler{
+        public CameraHandler(@NonNull Looper looper) {
+            super(looper);
+        }
+        @Override
+        public void handleMessage(@NonNull Message msg) {
+            if(msg.what == NEW_SURFACE){
+                //handle getting a new surface
+                Surface surface = (Surface)msg.obj;
+                if(!mCameraOutputSurfaceList.contains(surface)) {
+                    Log.i(TAG,"Adding surface...");
+                    mCameraOutputSurfaceList.add(surface);
+                    if(mCameraOutputSurfaceList.size() == 2){
+                        try {
+                            mCameraDevice.createCaptureSession(mCameraOutputSurfaceList, mCaptureSessionStateCallback, mHandler);
+                        } catch (CameraAccessException e) {
+                            e.printStackTrace();
+                            //sometimes onpause gets called and the camera is closed before configuration
+                            //so we need to not crash here do what nullify and empty stuff or what?
+                            //
+                        }
+                    }
+
+                }
+            }else if(msg.what == IMAGE_OUTPUT_SIZE){
+                Size size = (Size)msg.obj;
+                mImageReader = ImageReader.newInstance(size.getWidth(),
+                        size.getHeight(),
+                        ImageFormat.JPEG,
+                        1);
+                        //send image to camera fragment
+                mImageReader.setOnImageAvailableListener( imageReader -> {
+                    mImageReceiver.OnReceiveImage(imageReader.acquireLatestImage());
+                },mHandler);
+                addSurface(mImageReader.getSurface());
+            }
+            else {
+                super.handleMessage(msg);
+            }
+        }
+    }
+
+    private ImageReader mImageReader;
     private HashMap<String, String> mCameraIdNameMap;
     private String mCurrentCameraID;
+    private Size[] mImageOutSizes;
 
-    CameraOperationManager(Context context) {
+    CameraOperationManager(Context context,ImageReceiver mImageReceiver) {
         mCameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
         mCameraIdNameMap = new HashMap<>();
         mCameraOutputSurfaceList = new ArrayList<>();
-        blockingQ = new ArrayBlockingQueue<>(1);
+        this.mImageReceiver = mImageReceiver;
         getCameraId();
     }
 
@@ -206,13 +252,15 @@ class CameraOperationManager {
             if (mCurrentCameraID != null) {
                 mCameraCharacteristics = mCameraManager.getCameraCharacteristics(mCurrentCameraID);
             }
-            exposureTimeRanges = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
-            sensorSensitivityRanges = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
+            //exposureTimeRanges = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
+            //sensorSensitivityRanges = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
             /*if(exposureTimeRanges != null) {
                 Log.i(TAG, "ExposureTimeRanges in ns => " + exposureTimeRanges.toString());
             }if(sensorSensitivityRanges != null) {
                 Log.i(TAG, "SensorSensitivityRanges => " + sensorSensitivityRanges.toString());
             }*/
+            //mImageOutSizes = mCameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP).getOutputSizes(ImageFormat.JPEG);
+            //Log.i(TAG, "JPEG_SIZES => "+ Arrays.toString(mImageOutSizes));
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -225,7 +273,7 @@ class CameraOperationManager {
     void startCameraThread() {
         mHandlerThread = new HandlerThread("CameraOperationThread");
         mHandlerThread.start();
-        mHandler = new Handler(mHandlerThread.getLooper());
+        mHandler = new CameraHandler(mHandlerThread.getLooper());
     }
 
     /**
@@ -250,11 +298,9 @@ class CameraOperationManager {
      * @param surface A surface the camera can use as an output
      */
     void addSurface(Surface surface) {
-        Log.i(TAG,"Trying to add surface...");
-        if(!blockingQ.contains(surface)) {
-            Log.i(TAG,"Adding surface...");
-            blockingQ.offer(surface);
-        }
+        //should use camera handler
+        //guaranteed to be waiting
+        mHandler.sendMessage(mHandler.obtainMessage(NEW_SURFACE,surface));
     }
 
     /**
@@ -279,6 +325,46 @@ class CameraOperationManager {
             e.printStackTrace();
         }
     }
+
+
+    public void takePicture() {
+        //stop camera preview
+        try {
+            mCameraCaptureSession.stopRepeating();
+            mCameraCaptureSession.abortCaptures();
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+        if(mSingleCaptureRequest == null) {
+            try {
+                CaptureRequest.Builder singleCaptureBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+                singleCaptureBuilder.set(CaptureRequest.CONTROL_AE_MODE, CameraMetadata.CONTROL_AE_MODE_ON);
+                singleCaptureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CameraMetadata.CONTROL_AF_MODE_AUTO);
+                singleCaptureBuilder.set(CaptureRequest.CONTROL_AWB_MODE, CameraMetadata.CONTROL_AWB_MODE_AUTO);
+                //rotating from sensor to device orientation
+                //
+                int sensorOrientation = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
+                Log.i("CameraOperationManager","SENSOR_ROTATION => "+sensorOrientation);
+                singleCaptureBuilder.set(CaptureRequest.JPEG_ORIENTATION,sensorOrientation);
+                //image will be rotated by this many degrees from natural orientation so if sensor matches
+                singleCaptureBuilder.addTarget(mCameraOutputSurfaceList.get(1));//the surface to output images to
+
+                mSingleCaptureRequest = singleCaptureBuilder.build();
+                mCameraCaptureSession.capture(mSingleCaptureRequest, mSingleCaptureCallback, mHandler);
+            } catch (CameraAccessException e) {
+                e.printStackTrace();
+            }
+        }else{
+            try {
+                mCameraCaptureSession.capture(mSingleCaptureRequest,mSingleCaptureCallback,mHandler);
+            } catch (CameraAccessException e) {
+                e.printStackTrace();
+            }
+        }
+
+    }
+
+
 
     /**
      * Close currently open camera
